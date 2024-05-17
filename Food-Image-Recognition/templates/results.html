@@ -135,30 +135,26 @@
 {% endfor %}
 <br/>
 <br/>
-<!-- <h2>Nutrition Report</h2>
-        <div id="piechart" style="height: 500px; margin:auto;">
-            <script type="text/javascript">
-                // Load google charts
-                google.charts.load('current', {'packages': ['corechart']});
-                google.charts.setOnLoadCallback(drawChart);
-
-                // Draw the chart and set the chart values
-                function drawChart() {
-                    let dataset = [];
-                    dataset.push(['name', 'value']);
-                    let wholefood = {{ whole_nutrition|safe }};
-                    wholefood.forEach(element => dataset.push([element.name, element.value]));
-                    console.log(dataset)
-                    let data = google.visualization.arrayToDataTable(dataset);
-
-                    // Optional; add a title and set the width and height of the chart
-                    let options = {is3D: false};
-
-                    // Display the chart inside the <div> element with id="piechart"
-                    let chart = new google.visualization.PieChart(document.getElementById('piechart'));
-                    chart.draw(data, options);
-                    }
-       </script>
-        </div> -->
+<h1>Nutrition Information</h1>
+    <ul>
+        {% for food in nutrition_info.foods %}
+        <li>
+            <strong>Food Name:</strong> {{ food.food_name }}<br>
+            <strong>Serving Quantity:</strong> {{ food.serving_qty }}<br>
+            <strong>Serving Unit:</strong> {{ food.serving_unit }}<br>
+            <strong>Calories:</strong> {{ food.nf_calories }}<br>
+            <strong>Total Fat:</strong> {{ food.nf_total_fat }}<br>
+            <strong>Saturated Fat:</strong> {{ food.nf_saturated_fat }}<br>
+            <strong>Cholesterol:</strong> {{ food.nf_cholesterol }}<br>
+            <strong>Sodium:</strong> {{ food.nf_sodium }}<br>
+            <strong>Total Carbohydrate:</strong> {{ food.nf_total_carbohydrate }}<br>
+            <strong>Dietary Fiber:</strong> {{ food.nf_dietary_fiber }}<br>
+            <strong>Sugars:</strong> {{ food.nf_sugars }}<br>
+            <strong>Protein:</strong> {{ food.nf_protein }}<br>
+            <strong>Potassium:</strong> {{ food.nf_potassium }}<br>
+            <!-- Include other relevant fields here -->
+        </li>
+        {% endfor %}
+    </ul>
 </body>
 </html>
