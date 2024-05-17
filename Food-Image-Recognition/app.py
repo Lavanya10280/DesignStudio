@@ -1,5 +1,5 @@
 import tensorflow
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, jsonify
 import csv
 import math
 import os
@@ -15,6 +15,8 @@ from tensorflow.keras.applications.inception_v3 import preprocess_input, decode_
 import numpy as np
 import PIL
 import sys
+import requests
+import json
 
 
 tmpl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
@@ -23,114 +25,8 @@ app = Flask(__name__, template_folder=tmpl_dir)
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# define label meaning
-label = ['apple pie',
-         'baby back ribs',
-         'baklava',
-         'beef carpaccio',
-         'beef tartare',
-         'beet salad',
-         'beignets',
-         'bibimbap',
-         'bread pudding',
-         'breakfast burrito',
-         'bruschetta',
-         'caesar salad',
-         'cannoli',
-         'caprese salad',
-         'carrot cake',
-         'ceviche',
-         'cheese plate',
-         'cheesecake',
-         'chicken curry',
-         'chicken quesadilla',
-         'chicken wings',
-         'chocolate cake',
-         'chocolate mousse',
-         'churros',
-         'clam chowder',
-         'club sandwich',
-         'crab cakes',
-         'creme brulee',
-         'croque madame',
-         'cup cakes',
-         'deviled eggs',
-         'donuts',
-         'dumplings',
-         'edamame',
-         'eggs benedict',
-         'escargots',
-         'falafel',
-         'filet mignon',
-         'fish and_chips',
-         'foie gras',
-         'french fries',
-         'french onion soup',
-         'french toast',
-         'fried calamari',
-         'fried rice',
-         'frozen yogurt',
-         'garlic bread',
-         'gnocchi',
-         'greek salad',
-         'grilled cheese sandwich',
-         'grilled salmon',
-         'guacamole',
-         'gyoza',
-         'hamburger',
-         'hot and sour soup',
-         'hot dog',
-         'huevos rancheros',
-         'hummus',
-         'ice cream',
-         'lasagna',
-         'lobster bisque',
-         'lobster roll sandwich',
-         'macaroni and cheese',
-         'macarons',
-         'miso soup',
-         'mussels',
-         'nachos',
-         'omelette',
-         'onion rings',
-         'oysters',
-         'pad thai',
-         'paella',
-         'pancakes',
-         'panna cotta',
-         'peking duck',
-         'pho',
-         'pizza',
-         'pork chop',
-         'poutine',
-         'prime rib',
-         'pulled pork sandwich',
-         'ramen',
-         'ravioli',
-         'red velvet cake',
-         'risotto',
-         'samosa',
-         'sashimi',
-         'scallops',
-         'seaweed salad',
-         'shrimp and grits',
-         'spaghetti bolognese',
-         'spaghetti carbonara',
-         'spring rolls',
-         'steak',
-         'strawberry shortcake',
-         'sushi',
-         'tacos',
-         'octopus balls',
-         'tiramisu',
-         'tuna tartare',
-         'waffles']
-
-nu_link = 'https://www.nutritionix.com/food/'
-
-# Loading the best saved model to make predictions.
-base_model = InceptionV3(weights='imagenet', include_top=True)
-model_best = Model(inputs=base_model.input, outputs=base_model.output)
+# Load the top classification layer (softmax layer)
+top_model = InceptionV3(weights='imagenet')
 print('InceptionV3 model successfully loaded!')
 
 start = [0]
@@ -164,6 +60,7 @@ with open('nutrition101.csv', 'r') as file:
         ]
 
 
+
 @app.route('/')
 def index():
     img = 'static/profile.jpg'
@@ -189,7 +86,6 @@ def upload():
     return render_template('recognize.html', img=filename)
 
 
-
 @app.route('/predict')
 def predict():
     result = []
@@ -202,9 +98,6 @@ def predict():
         print('image filepath', filename)
         
         try:
-            # Load pre-trained InceptionV3 model (excluding top classification layer)
-            model = InceptionV3(weights='imagenet', include_top=False)
-            
             # Preprocess your food image
             img_path = filename
             img = image.load_img(img_path, target_size=(299, 299))
@@ -212,16 +105,15 @@ def predict():
             x = np.expand_dims(x, axis=0)
             x = preprocess_input(x)
             
-            # Get features from InceptionV3 model
-            features = model.predict(x)
-            
             # Load the top classification layer (softmax layer)
             top_model = InceptionV3(weights='imagenet')
-            
+
             # Predict classes for your food image
             predictions = top_model.predict(x)
+
             # Decode the predictions to get human-readable labels
             decoded_predictions = decode_predictions(predictions, top=3)[0]
+
             # Print the top predicted classes and their probabilities
             for i, (imagenet_id, label, score) in enumerate(decoded_predictions):
                 print(f"{i + 1}: {label} ({score:.2f})")
@@ -230,44 +122,54 @@ def predict():
                 print(f"Error: Unable to identify image file '{img_path}'")
                 sys.exit(1)
 
-        # if math.isnan(pred[0][0]) and math.isnan(pred[0][1]) and math.isnan(pred[0][2]) and math.isnan(pred[0][3]):
-        #     pred = np.array([0.05, 0.05, 0.05, 0.07, 0.09, 0.19, 0.55, 0.0, 0.0, 0.0, 0.0])
-
         
         pa['image'] = filename
         x = dict()
         for i, (imagenet_id, label, score) in enumerate(decoded_predictions):
                 x[label] = "{:.2f}".format(score * 100)
-        # x[_true] = float("{:.2f}".format(pred[0][top[2]] * 100))
-        # x[label[top[1]]] = float("{:.2f}".format(pred[0][top[1]] * 100))
-        # x[label[top[0]]] = float("{:.2f}".format(pred[0][top[0]] * 100))
+                if i == 0:
+                    nutrition_info = get_nutrition_info(label)
+       
         pa['result'] = x
-        # pa['nutrition'] = 'needs to be filled'
-        # pa['food'] = f'{nu_link}'
-        # pa['idx'] = i - start[0]
         pa['quantity'] = 100
-
+        pa['nutrition info'] = nutrition_info
         pack[0].append(pa)
         passed[0] += 1
 
     start[0] = passed[0]
     print('successfully packed')
-    # compute the average source of calories
-    # for p in pack[0]:
-    #     nutrients[0]['value'] = (nutrients[0]['value'] + p['nutrition'][0]['value'])
-    #     nutrients[1]['value'] = (nutrients[1]['value'] + p['nutrition'][1]['value'])
-    #     nutrients[2]['value'] = (nutrients[2]['value'] + p['nutrition'][2]['value'])
-    #     nutrients[3]['value'] = (nutrients[3]['value'] + p['nutrition'][3]['value'])
-    #     nutrients[4]['value'] = (nutrients[4]['value'] + p['nutrition'][4]['value'])
 
-    # nutrients[0]['value'] = nutrients[0]['value'] / num[0]
-    # nutrients[1]['value'] = nutrients[1]['value'] / num[0]
-    # nutrients[2]['value'] = nutrients[2]['value'] / num[0]
-    # nutrients[3]['value'] = nutrients[3]['value'] / num[0]
-    # nutrients[4]['value'] = nutrients[4]['value'] / num[0]
+    return render_template('results.html', pack=pack[0], nutrition_info=nutrition_info)
 
-    return render_template('results.html', pack=pack[0])
 
+def get_nutrition_info(food_item):
+
+    # Define your application ID and application key
+    app_id = '5f26746b'
+    app_key = '1136c06fa0a881845197eaf0ddab841d'
+
+    # Define the headers with authentication information
+    headers = {
+        'Content-Type': 'application/json',
+        'x-app-id': app_id,
+        'x-app-key': app_key
+    }
+
+    # Make a GET request to the Nutritionix API to search for the food item
+    response = requests.post('https://trackapi.nutritionix.com/v2/natural/nutrients',
+                            headers=headers,
+                            json={'query': food_item}
+                            )
+
+    # Check if the request was successful (status code 200)
+    if response.status_code == 200:
+        print("Nutrition Info Retrieved")
+        # Return the JSON response from the Nutritionix API
+        return response.json()
+    else:
+        # Return an error message if the request failed
+        print("Nutrition Info Not Retrieved")
+        return {'error': 'Failed to fetch nutrition data'}
 
 
 @app.route('/update', methods=['POST'])
@@ -294,3 +196,4 @@ if __name__ == "__main__":
         HOST, PORT = host, port
         app.run(host=HOST, port=PORT, debug=debug, threaded=threaded)
     run()
+
